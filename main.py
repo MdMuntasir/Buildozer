@@ -587,28 +587,28 @@ class DIU_Routine(MDApp):
         return kk
 
     def close_dialouge(self):
-        if not self.dialog:
-            self.dialog = MDDialog(
-                text="Discard draft?",
-                buttons=[
-                    MDRectangleFlatButton(
-                        text="Cancel",
-                        theme_text_color="Custom",
-                        text_color="#121212",
-                        on_press=self.dialog_close,
-                        md_bg_color="#c97b22",
-                        line_color="#c97b22"
-                    ),
-                    MDRectangleFlatButton(
-                        text="Close",
-                        theme_text_color="Custom",
-                        text_color="#121212",
-                        on_press=self.app_close,
-                        md_bg_color="#c97b22",
-                        line_color="#c97b22"
-                    ),
-                ],
-            )
+
+        self.dialog = MDDialog(
+            text="Exit Application?",
+            buttons=[
+                MDRectangleFlatButton(
+                    text="Cancel",
+                    theme_text_color="Custom",
+                    text_color="#121212",
+                    on_press=self.dialog_close,
+                    md_bg_color="#c97b22",
+                    line_color="#c97b22"
+                ),
+                MDRectangleFlatButton(
+                    text="Close",
+                    theme_text_color="Custom",
+                    text_color="#121212",
+                    on_press=self.app_close,
+                    md_bg_color="#c97b22",
+                    line_color="#c97b22"
+                ),
+            ],
+        )
         self.dialog.open()
     def dialog_close(self):
         self.dialog.dismiss()
