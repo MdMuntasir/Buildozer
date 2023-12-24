@@ -435,8 +435,6 @@ class Info_Collect(MDScreen):
                     theme_text_color="Custom", text_color="#171717"))
 
     def download(self, obj):
-        dialog = MDDialog(title="Downloading")
-        dialog.open()
         if platform == 'android':
             from android.storage import app_storage_path
             from android import mActivity
@@ -460,7 +458,6 @@ class Info_Collect(MDScreen):
         rtn = 'https://drive.google.com/uc?id=1e5_vL6oA4OtPBYb8Nyv1kizkdriBZ8eW'
 
         rtn_response = requests.get(rtn)
-        dialog.dismiss()
         if rtn_response.status_code == 200 :
             with open(temp_path, 'wb') as file:
                 file.write(rtn_response.content)
