@@ -1,13 +1,13 @@
 import os
 import requests
 from fpdf import FPDF
-
-from kivy import platform
+from kivy.utils import platform
 from kivy.core.window import Window
 from kivy.lang import Builder
 from kivy.metrics import dp
 from kivymd.uix.datatables import MDDataTable
 from kivymd.uix.dialog import MDDialog
+from kivymd.uix.floatlayout import MDFloatLayout
 from kivymd.uix.gridlayout import MDGridLayout
 from kivymd.uix.screenmanager import MDScreenManager
 from kivymd.uix.screen import MDScreen
@@ -16,306 +16,69 @@ from openpyxl import Workbook as wrk
 from openpyxl.styles import Font, Alignment, Border, Side
 from kivymd.app import MDApp
 from kivy.uix.popup import Popup
-from kivymd.uix.boxlayout import BoxLayout
+from kivymd.uix.boxlayout import BoxLayout, MDBoxLayout
 from kivymd.uix.button import MDRectangleFlatButton
 from kivymd.uix.textfield import MDTextField
 from kivymd.uix.label import MDLabel
 from kivymd.uix.scrollview import MDScrollView
+
+from Functions.functions import functions
+
+if platform == "android":
+    from androidstorage4kivy import SharedStorage
 from kivymd.uix.behaviors import BackgroundColorBehavior, CommonElevationBehavior
 
-
 hm = 'Follow these steps\n\n1. Click on "Download Routine" and wait a few seconds to download the latest routine. Click "Current Routine" to use the already downloaded routine.' \
-     'You need to download the routine at least one time after installation to use "Current Routine"\n\n2. ' \
-     'Now enter your batch and section in the batch and section box \n\n3.' \
-     'Click on "Next" button to see and save routine. \n\n4. Click "Show Routine" to see routine and "Save" to save your routine in pdf format.'
+     'You need to download the routine at least one time after installation to use "Current Routine"\n\n2.1 ' \
+     'For individual section routine click "Student". Now enter your batch and section in the batch and section box \n\n2.2 ' \
+     'To get routine for a specific teacher routine click "Teacher". Now enter teacher initial of that teacher \n\n3.1' \
+     'Click on "Next" button to see and save routine. \n\n3.2' \
+     'Click on "Empty Slots" button to see and save empty slots from the routine. \n\n4. ' \
+     'Click "Show Routine" to see routine and "Save" to save your routine in pdf format.'
+
+
 
 semester = {}
 
-days = {
-    "Sat": [],
-    "Sun": [],
-    "Mon": [],
-    "Tue": [],
-    "Wed": [],
-    "Thu": []
+emt_days = {
+    "Sat": {},
+    "Sun": {},
+    "Mon": {},
+    "Tue": {},
+    "Wed": {},
+    "Thu": {}
 }
+
+days = {
+            "Sat": [],
+            "Sun": [],
+            "Mon": [],
+            "Tue": [],
+            "Wed": [],
+            "Thu": []
+        }
 
 day = {}
 times = []
-loctn = ['', '']
+loctn = ['', '', '']
 color = {}
 
-def extractor(loc):
 
-    clr_sheet = wb(loc)
-    info_sheet = clr_sheet.worksheets[1]
-    c_count = 66
-    cd_count = 3
-
-    while info_sheet[chr(c_count)+'1'].value:
-        color[str(info_sheet[chr(c_count)+'1'].value)] = info_sheet[chr(c_count)+'1'].fill.fgColor.rgb
-        c_count += 1
-
-    while info_sheet["A"+str(cd_count)].value:
-        semester[str(info_sheet["A"+str(cd_count)].value)] = info_sheet["B"+str(cd_count)].value
-        cd_count += 1
-    clr_sheet.close()
-
-def routine_separateor(loc,lst,bach):
-    sheet = wb(loc)
-    routine = sheet.worksheets[0]
-    ltrs = ['B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q']
-    x = 6
-    times.append(routine["A3"].value)
-    for i in range(2, len(ltrs), 2):
-        times.append(routine[ltrs[i] + '3'].value)
-    for i in range(x, x + 19):
-        if routine['A' + str(i)].value == "Sunday":
-            x = i
-            break
-        for ltr in ltrs:
-            cursor = ltr + str(i)
-            if routine[cursor].fill and routine[cursor].fill.fgColor.rgb == color[bach] and routine[
-                cursor].value in lst:
-                if ltr == 'B':
-                    time = routine['A' + '3'].value
-                else:
-                    time = routine[ltr + '3'].value
-                room = routine['A' + str(i)].value
-                sub = routine[cursor].value
-                days["Sat"].append([sub, time, str(room)])
-
-    i = x
-    while True:
-        if routine['A' + str(i)].value == "Monday":
-            break
-        for ltr in ltrs:
-            cursor = ltr + str(i)
-            if routine[cursor].fill and routine[cursor].fill.fgColor.rgb == color[bach] and routine[
-                cursor].value in lst:
-                # if not color:
-                #     color.append(routine[cursor].fill.fgColor.rgb)
-                if ltr == 'B':
-                    time = routine['A' + '3'].value
-                else:
-                    time = routine[ltr + '3'].value
-                room = routine['A' + str(i)].value
-                sub = routine[cursor].value
-                days["Sun"].append([sub, time, str(room)])
-        i += 1
-
-    while True:
-        if routine['A' + str(i)].value == "Tuesday":
-            break
-        for ltr in ltrs:
-            cursor = ltr + str(i)
-            if routine[cursor].fill and routine[cursor].fill.fgColor.rgb == color[bach] and routine[
-                cursor].value in lst:
-                if ltr == 'B':
-                    time = routine['A' + '3'].value
-                else:
-                    time = routine[ltr + '3'].value
-                room = routine['A' + str(i)].value
-                sub = routine[cursor].value
-                days["Mon"].append([sub, time, str(room)])
-        i += 1
-
-    while True:
-        if routine['A' + str(i)].value == "Wednesday":
-            break
-        for ltr in ltrs:
-            cursor = ltr + str(i)
-            if routine[cursor].fill and routine[cursor].fill.fgColor.rgb == color[bach] and routine[
-                cursor].value in lst:
-                if ltr == 'B':
-                    time = routine['A' + '3'].value
-                else:
-                    time = routine[ltr + '3'].value
-                room = routine['A' + str(i)].value
-                sub = routine[cursor].value
-                days["Tue"].append([sub, time, str(room)])
-        i += 1
-
-    while True:
-        if routine['A' + str(i)].value == "Thursday":
-            break
-        for ltr in ltrs:
-            cursor = ltr + str(i)
-            if routine[cursor].fill and routine[cursor].fill.fgColor.rgb == color[bach] and routine[
-                cursor].value in lst:
-                if ltr == 'B':
-                    time = routine['A' + '3'].value
-                else:
-                    time = routine[ltr + '3'].value
-                room = routine['A' + str(i)].value
-                sub = routine[cursor].value
-                days["Wed"].append([sub, time, str(room)])
-        i += 1
-
-    while True:
-        if routine['A' + str(i)].value == None:
-            break
-        for ltr in ltrs:
-            cursor = ltr + str(i)
-            if routine[cursor].fill and routine[cursor].fill.fgColor.rgb == color[bach] and routine[
-                cursor].value in lst:
-                if ltr == 'B':
-                    time = routine['A' + '3'].value
-                else:
-                    time = routine[ltr + '3'].value
-                room = routine['A' + str(i)].value
-                sub = routine[cursor].value
-                days["Thu"].append([sub, time, str(room)])
-        i += 1
-
-
-
-
-
-
-def routine_pdf(dic, times, sec, path):
-    tbl = []
-
-    for key in dic.keys():
-        lst = [key]
-        k = dic[key]
-        for time in times:
-            fnd = False
-            for subs in k:
-                if subs[1] == time:
-                    lst.append(f"{subs[0]}\nRoom: {str(subs[2])}")
-                    fnd = True
-                    break
-            if fnd == False:
-                lst.append('')
-        tbl.append(lst)
-    class PDF(FPDF):
-        def header(self):
-            self.set_font("Times",'B', size=28)
-            self.set_fill_color(107, 106, 106)
-            self.set_text_color(235, 235, 235)
-            self.cell(0, 15, txt=sec, align="C",border=1,fill=True)
-            self.ln(15)
-
-
-    pdf = PDF('P','mm','Letter')
-    pdf.add_page()
-    pdf.title = sec
-
-    pdf.set_font("Times", 'B', size=10)
-    x = 10
-    y = 35
-    cell_len=22
-    day_len = 20
-    cell_height=16
-    pdf.set_fill_color(56, 56, 56)
-    pdf.set_text_color(230, 230, 230)
-    pdf.cell(day_len, 10, txt='', border=1, fill=True)
-    pdf.set_x(x + day_len)
-    x += day_len
-    for t in times:
-        pdf.cell(cell_len,10,txt=t,border=1,fill=True,align="C")
-        pdf.set_x(x+cell_len)
-        x+=cell_len
-
-    pdf.set_xy(10, y)
-
-    pdf.set_fill_color(84, 84, 84)
-    for subs in tbl:
-        x = 10
-        pdf.set_text_color(230, 230, 230)
-        pdf.multi_cell(day_len, cell_height, txt=subs[0], border=1, fill=True,align="C")
-        pdf.set_xy(x + day_len,y)
-        x += day_len
-        pdf.set_text_color(15, 15, 15)
-        for i in range(1,len(subs)):
-            if subs[i]!='':
-                pdf.multi_cell(cell_len, cell_height//2, txt=subs[i], border=1,align="C")
-            else:
-                pdf.multi_cell(cell_len, cell_height, txt=subs[i], border=1,align="C")
-            pdf.set_xy(x+cell_len,y)
-            x+=cell_len
-        y += cell_height
-        pdf.set_xy(10,y)
-
-
-    pdf.output(f"{path}/{sec}.pdf")
-
-
-
-
-
-
-def routine_excel(dic, times, sec, path):
-    border = Border(
-        left=Side(style='medium'),
-        right=Side(style='medium'),
-        top=Side(style='medium'),
-        bottom=Side(style='medium')
-    )
-    workbook = wrk()
-    rtn = workbook.active
-    rtn.title=sec
-    lst = [chr(i) for i in range(66,66+len(times))]
-
-    for cr in lst:
-        rtn[cr+"1"].border = border
-    clm = len(times)-1
-    row = 2*len(dic)+3
-    for i in range(1,row):
-        rtn["A"+str(i)].border = border
-
-    rtn.merge_cells(f"A1:{lst[clm]}1")
-    rtn["A1"].value = sec
-    rtn["A1"].font = Font(name="Times New Roman", size=20, bold=True)
-    rtn["A1"].alignment = Alignment(horizontal="center")
-    rtn["A1"].border = border
-    rtn[lst[clm] + '1'].border = border
-    rtn.column_dimensions["A"].width = 16.5
-    for i in range(clm + 1):
-        rtn.column_dimensions[lst[i]].width = 17
-
-    i = 0
-    for time in times:
-        rtn[lst[i] + '2'].value = time
-        rtn[lst[i] + '2'].font = Font(name="Times New Roman", size=14, bold=True)
-        rtn[lst[i] + '2'].alignment = Alignment(vertical="center")
-        rtn[lst[i] + '2'].alignment = Alignment(horizontal="center")
-        rtn[lst[i] + '2'].border = border
-        i += 1
-    i = 3
-
-    for key in dic.keys():
-        rtn['A' + str(i + 1)].border = border
-        rtn.merge_cells(f"A{str(i)}:A{str(i + 1)}")
-        rtn['A' + str(i)].value = key
-        rtn['A' + str(i)].font = Font(name="Times New Roman", size=14, bold=True)
-        rtn['A' + str(i)].alignment = Alignment(vertical="center")
-        rtn['A' + str(i)].alignment = Alignment(horizontal="center")
-        rtn['A' + str(i)].border = border
-        i += 2
-
-    i = 0
-    for j in range(3, row, 2):
-        key = dic[rtn["A" + str(j)].value]
-        for k in range(1, clm + 2):
-            c = lst[k - 1]
-            rtn[c + str(j)].border = border
-            rtn[c + str(j + 1)].border = border
-            for x in key:
-                if rtn[c + '2'].value == x[1]:
-                    rtn[c + str(j)].value = str(x[0])
-                    rtn[c + str(j + 1)].value = f"(Room : {str(x[2])})"
-                    rtn[c + str(j)].font = Font(name="Times New Roman", size=13.5)
-                    rtn[c + str(j + 1)].font = Font(name="Times New Roman", size=12)
-                    rtn[c + str(j)].alignment = Alignment(horizontal="center")
-                    rtn[c + str(j + 1)].alignment = Alignment(horizontal="center")
-
-                    break
-
-        i += 1
-
-    workbook.save(f"{path}/{sec}.xlsx")
+# def extractor(loc):
+#
+#     clr_sheet = wb(loc)
+#     info_sheet = clr_sheet.worksheets[1]
+#     c_count = 66
+#     cd_count = 3
+#
+#     while info_sheet[chr(c_count)+'1'].value:
+#         color[str(info_sheet[chr(c_count)+'1'].value)] = info_sheet[chr(c_count)+'1'].fill.fgColor.rgb
+#         c_count += 1
+#
+#     while info_sheet["A"+str(cd_count)].value:
+#         semester[str(info_sheet["A"+str(cd_count)].value)] = info_sheet["B"+str(cd_count)].value
+#         cd_count += 1
+#     clr_sheet.close()
 
 
 
@@ -323,22 +86,24 @@ def routine_excel(dic, times, sec, path):
 
 Generated = False
 
-
-
-
-
 kv = '''
 
 ScreenManager:
-    Info_Collect:
+
+    HomePage:
+    StudentPage:
+    Student_Routine_Show:
+    TeacherPage:
+    Teacher_Routine_Show:
+    Blank_Slot_Routine:
     Help:
-    Routine_Show:
-    
+
+
 
 <Help>:
 
     name: "help"
-    
+
     BoxLayout:
         padding: 20
         orientation: "vertical"
@@ -352,7 +117,7 @@ ScreenManager:
         MDLabel:
             size_hint: .5,.05
             pos_hint: {"center_x":.5,"center_y":1}  
-            
+
         Scroll:
             size_hint: 1,.75
             do_scroll_y : True
@@ -363,7 +128,7 @@ ScreenManager:
                 valign:"top"
                 size_hint_y: None
                 height: max(self.texture_size[1],self.parent.height)
-                
+
 
         MDLabel:
             size_hint: .5,.05
@@ -372,69 +137,84 @@ ScreenManager:
         MDRectangleFlatButton:
             text: "Close"
             pos_hint: {"center_x":.5,"center_y":1}
-            on_press: root.manager.current = "function"
-        
+            on_press: root.manager.current = "Home"
+
         MDLabel:
             size_hint: .5,.1
             pos_hint: {"center_x":.5,"center_y":1}
-            
-            
-<Info_Collect>:
-    name: "function"
-    
-<Routine_Show>:
-    name: "show"
 
 
+<StudentPage>:
+    name: "StudentPage"
+
+<Student_Routine_Show>:
+    name: "student_show"
+
+<HomePage>:
+    name: "Home"
+
+<TeacherPage>:
+    name: "TeacherPage"
+
+<Teacher_Routine_Show>:
+    name: "teacher_show"
+
+<Blank_Slot_Routine>:
+    name: "empty_slot"
 <Scroll@MDScrollView>
 
 '''
 
 
-
-
-
-
-class Help(MDScreen):
-    message = hm
-    pass
-
-
-class Info_Collect(MDScreen):
+class HomePage(MDScreen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.orientation = "vertical"
-        self.spacing = 15
-        self.padding = 20
-        b1 = MDRectangleFlatButton(text="Download Routine",line_color="#30c6d1" ,size_hint=[.5, .04], pos_hint={"center_x": .5, "center_y": .85},
-                            on_press=self.download, md_bg_color="#30c6d1", text_color="#292929")
-        b12 = MDRectangleFlatButton(text="Current Routine",line_color="#c97b22" ,size_hint=[.5, .04], pos_hint={"center_x": .5, "center_y": .75},
-                            on_press=self.current ,md_bg_color="#c97b22", text_color="#121212")
-        self.b2 = MDRectangleFlatButton(text="Next", size_hint=[.25, .06], pos_hint={"center_x": .5, "center_y": .34},
-                                 on_press=self.Generate_routine,line_color="#31de8d", md_bg_color="#31de8d", text_color="#292929", disabled=True)
-        b3 = MDRectangleFlatButton(text="Help", size_hint=[.2, .06], pos_hint={"center_x": .5, "center_y": .2},
-                            on_press=self.change,line_color="#3c3d3d" ,md_bg_color="#3c3d3d", text_color="white")
+        download_button = MDRectangleFlatButton(text="Download Routine", line_color="#30c6d1", size_hint=[.6, .04],
+                                                pos_hint={"center_x": .5, "center_y": .85},
+                                                on_press=self.download, md_bg_color="#30c6d1", text_color="#292929")
+        self.current_button = MDRectangleFlatButton(text="Current Routine", line_color="#c97b22", size_hint=[.6, .04],
+                                                    pos_hint={"center_x": .5, "center_y": .75},
+                                                    on_press=self.current, md_bg_color="#c97b22", text_color="#121212")
 
-        self.add_widget(b1)
-        self.add_widget(b12)
+        self.b1 = MDRectangleFlatButton(text="Student", line_color="#005252", size_hint=[.4, .04],
+                                        pos_hint={"center_x": .5, "center_y": .6}, md_bg_color="#005252",
+                                        text_color="#ffffff", on_press=self.student_page, disabled=True)
+        self.b2 = MDRectangleFlatButton(text="Teacher", line_color="#005252", size_hint=[.4, .04],
+                                        pos_hint={"center_x": .5, "center_y": .5}, md_bg_color="#005252",
+                                        text_color="#ffffff", on_press=self.teacher_page, disabled=True)
+        self.b3 = MDRectangleFlatButton(text="Empty Slots", line_color="#005252", size_hint=[.4, .04],
+                                        pos_hint={"center_x": .5, "center_y": .4}, md_bg_color="#005252",
+                                        text_color="#ffffff", on_press=self.emptySlote_page, disabled=True)
+        self.help_button = MDRectangleFlatButton(text="Help", size_hint=[.2, .06],
+                                                 pos_hint={"center_x": .5, "center_y": .15},
+                                                 line_color="#3c3d3d", md_bg_color="#3c3d3d", on_press=self.helpPage,
+                                                 text_color="white")
 
-        self.batch = MDTextField(multiline=False, size_hint=[.6, .1], pos_hint={"center_x": .5, "center_y": .65},
-                                     hint_text="Enter Batch")
-        self.add_widget(self.batch)
-
-        self.sec = MDTextField(multiline=False, size_hint=[.25, .06], pos_hint={"center_x": .5, "center_y": .5},
-                               hint_text="Enter Section")
-        self.add_widget(self.sec)
-
+        self.add_widget(download_button)
+        self.add_widget(self.current_button)
+        self.add_widget(self.b1)
         self.add_widget(self.b2)
+        self.add_widget(self.b3)
+        self.add_widget(self.help_button)
 
-        self.add_widget(b3)
-        self.add_widget(
-            MDLabel(text="0242320005341689", size_hint=[.5, .1], pos_hint={"center_x": .55, "center_y": .08},
-                    theme_text_color="Custom", text_color="#171717"))
+        self.dialouge = MDDialog(text="Downloading...")
+
+    def student_page(self, arg):
+        self.manager.current = "StudentPage"
+
+    def teacher_page(self, arg):
+        self.manager.current = "TeacherPage"
+
+    def emptySlote_page(self, arg):
+        functions.times,functions.emt_days = functions.empty_slot(loctn[2])
+        self.manager.current = "empty_slot"
+
+    def helpPage(self, arg):
+        self.manager.current = "help"
 
     def download(self, obj):
+
         if platform == 'android':
             from android.storage import app_storage_path
             from android import mActivity
@@ -446,7 +226,7 @@ class Info_Collect(MDScreen):
             else:
                 storage_path = app_storage_path()
         else:
-            storage_path = "G:\Pycharm\Projects\Routine"
+            storage_path = os.curdir
 
         if not os.path.exists(os.path.join(storage_path, "App Data")):
             os.makedirs(os.path.join(storage_path, "App Data"))
@@ -454,11 +234,9 @@ class Info_Collect(MDScreen):
 
         temp_path = os.path.join(storage_path, "routine.xlsx")
 
-
         rtn = 'https://drive.google.com/uc?id=1e5_vL6oA4OtPBYb8Nyv1kizkdriBZ8eW'
-
         rtn_response = requests.get(rtn)
-        if rtn_response.status_code == 200 :
+        if rtn_response.status_code == 200:
             with open(temp_path, 'wb') as file:
                 file.write(rtn_response.content)
 
@@ -468,20 +246,22 @@ class Info_Collect(MDScreen):
                                theme_text_color="Custom", text_color="#e6e5e3")
             down.add_widget(down.txt)
             pop = Popup(title=storage_path, content=down, size_hint=[.8, .2], pos_hint={"center_x": .5})
-            extractor(temp_path)
+            # extractor(temp_path)
+
             pop.open()
-            self.path = temp_path
+            loctn[2] = temp_path
+            self.b1.disabled = False
             self.b2.disabled = False
+            self.b3.disabled = False
         else:
             down = BoxLayout()
-            down.txt = MDLabel(text="Download Failed",
+            down.txt = MDLabel(text="Try Again",
                                size_hint=[.5, 1], size=self.size, pos_hint={"top": 1.1},
                                theme_text_color="Custom", text_color="#e6e5e3")
             down.add_widget(down.txt)
-            pop = Popup(title=storage_path, content=down, size_hint=[.8, .2], pos_hint={"center_x": .5})
-            extractor(temp_path)
+            pop = Popup(title="Download Failed", content=down, size_hint=[.8, .2], pos_hint={"center_x": .5})
+            # extractor(temp_path)
             pop.open()
-
 
     def current(self, obj):
         if platform == 'android':
@@ -495,18 +275,19 @@ class Info_Collect(MDScreen):
             else:
                 storage_path = app_storage_path()
         else:
-            storage_path = "G:\Pycharm\Projects\Routine"
+            storage_path = os.curdir
 
         storage_path = os.path.join(storage_path, "App Data")
 
         temp_path = os.path.join(storage_path, "routine.xlsx")
 
-
         if os.path.exists(temp_path):
+            # extractor(temp_path)
+            loctn[2] = temp_path
 
-            extractor(temp_path)
-            self.path = temp_path
+            self.b1.disabled = False
             self.b2.disabled = False
+            self.b3.disabled = False
         else:
             down = BoxLayout()
             down.txt = MDLabel(text="Download the routine first",
@@ -516,149 +297,544 @@ class Info_Collect(MDScreen):
             pop = Popup(title="No Routine Found", content=down, size_hint=[.8, .2], pos_hint={"center_x": .5})
             pop.open()
 
+
+class Help(MDScreen):
+    message = hm
+    pass
+
+
+class StudentPage(MDScreen):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+        box = BoxLayout(padding=10, orientation="vertical")
+        self.b2 = MDRectangleFlatButton(text="Next", size=[.25, .06], pos_hint={"center_x": .5, "center_y": .34},
+                                        on_press=self.Generate_routine, line_color="#31de8d", md_bg_color="#31de8d",
+                                        text_color="#292929", )
+        b3 = MDRectangleFlatButton(text="Home", size=[.2, .06], pos_hint={"center_x": .5, "center_y": .2},
+                                   on_press=self.change, line_color="#3c3d3d", md_bg_color="#3c3d3d",
+                                   text_color="white")
+
+
+
+        box.add_widget(
+            MDLabel(text="SWE Routine", font_style="H4", pos_hint={"x": .25, "center_y": 1}, size_hint=[1, .1]))
+
+        box.add_widget(MDLabel(size_hint=[.5, .05]))
+
+        self.batch = MDTextField(multiline=False, size_hint=[.6, .1], pos_hint={"center_x": .5, "center_y": .8},
+                                 hint_text="Enter Batch")
+        box.add_widget(self.batch)
+
+        box.add_widget(MDLabel(size_hint=[.5, .05]))
+
+        self.sec = MDTextField(multiline=False, size_hint=[.25, .06], pos_hint={"center_x": .5, "center_y": .6},
+                               hint_text="Enter Section")
+        box.add_widget(self.sec)
+
+        box.add_widget(MDLabel(size_hint=[.5, .05]))
+
+        box.add_widget(self.b2)
+
+        box.add_widget(MDLabel(size_hint=[.5, .05]))
+
+        box.add_widget(b3)
+        box.add_widget(
+            MDLabel(text="0242320005341689", size_hint=[.5, .1], pos_hint={"center_x": .55, "center_y": .08},
+                    theme_text_color="Custom", text_color="#171717"))
+        self.add_widget(box)
+
     def Generate_routine(self, obj):
-        loc = self.path
+        loc = loctn[2]
+
         if platform == 'android':
             loc_list = loc.split('/')
+            loc_list.pop()
+
         else:
             loc_list = loc.split('\\')
+            loc_list.pop()
         loc_list.pop()
-        loc_list.pop()
-        loc_list.append("DIU SWE Routine")
+        loc_list.append("DIU Routine")
+
         loctn[0] = '/'.join(loc_list)
-        loctn[1] = str(self.batch.text) + "_" +self.sec.text.upper()
+        loctn[1] = str(self.batch.text) + "_" + self.sec.text.upper()
         location = loc
         self.save_loc = '/'.join(loc_list)
         self.section = self.sec.text.upper()
-        
+
         batch_txt = str(self.batch.text).upper()
-        batch = str(batch_txt[0:2])
-        if batch_txt in semester.keys() and batch in color.keys():
-            txt = semester[batch_txt].split()
-
-            subjects = []
-            for ele in txt:
-                if ele[-1] == 'L':
-                    lab = ele.split('_')
-                    subjects.append(lab[0] + self.section + '1')
-                    subjects.append(lab[0] + self.section + '2')
-                else:
-                    subjects.append(ele + self.section)
-            routine_separateor(location, subjects, batch)
-            for keys in days:
-                if days[keys] != []:
-                    day[keys] = days[keys]
-            for keys in days:
-                days[keys] = []
-
-            Generated = True
+        batch = str(batch_txt[0:2]) + self.section
 
 
+        functions.times,functions.days = functions.routine_separateor(location, batch)
+        for keys in functions.days:
+            if functions.days[keys] != []:
+                day[keys] = functions.days[keys]
+        for keys in days:
+            functions.days[keys] = []
 
-            self.manager.current = "show"
-        else:
-            down = BoxLayout()
-            down.txt = MDLabel(text="Wrong input\n\nTry reading the instruction again",
-                               size_hint=[.5, 1], size=self.size, pos_hint={"top": 1.1},
-                               theme_text_color="Custom", text_color="#e6e5e3")
-            down.add_widget(down.txt)
-            pop = Popup(title="Input Error", content=down, size_hint=[.8, .25], pos_hint={"center_x": .5})
-            pop.open()
-            print(color)
-            print(semester)
-            print(batch,batch_txt)
+        Generated = True
 
-
-
-
+        self.manager.current = "student_show"
+        # else:
+        #     down = BoxLayout()
+        #     down.txt = MDLabel(text="Wrong input\n\nTry reading the instruction again",
+        #                        size_hint=[.5, 1], size=self.size, pos_hint={"top": 1.1},
+        #                        theme_text_color="Custom", text_color="#e6e5e3")
+        #     down.add_widget(down.txt)
+        #     pop = Popup(title="Input Error", content=down, size_hint=[.8, .25], pos_hint={"center_x": .5})
+        #     pop.open()
 
     def change(self, obj):
-        self.manager.current = "help"
+        self.manager.current = "Home"
 
 
-
-
-
-class Routine_Show(MDScreen):
+class Student_Routine_Show(MDScreen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
         self.add_widget(
             MDRectangleFlatButton(text='Show Routine', on_press=self.show, pos_hint={'center_x': .5, 'center_y': .9},
-                           md_bg_color="#176963",line_color="#176963" ,text_color="white"))
-        self.add_widget(MDRectangleFlatButton(text='Save', pos_hint={"center_x": .5, "center_y": .2}, on_press=self.store,
-                                       md_bg_color="#31de8d" ,line_color="#31de8d"  ,text_color="#292929"))
+                                  md_bg_color="#176963", line_color="#176963", text_color="white"))
+        self.add_widget(
+            MDRectangleFlatButton(text='Save PDF', pos_hint={"center_x": .5, "center_y": .2}, on_press=self.pdf_store,
+                                  md_bg_color="#31de8d", line_color="#31de8d", text_color="#292929"))
+        # self.add_widget(
+        #     MDRectangleFlatButton(text='Save Excel', pos_hint={"center_x": .65, "center_y": .2}, on_press=self.excel_store,
+        #                           md_bg_color="#31de8d", line_color="#31de8d", text_color="#292929"))
         self.add_widget(
             MDRectangleFlatButton(text='Back', pos_hint={"center_x": .5, "center_y": .1}, on_press=self.change,
-                           md_bg_color="#30c6d1",line_color="#30c6d1" ,text_color="#292929"))
+                                  md_bg_color="#30c6d1", line_color="#30c6d1", text_color="#292929"))
 
         self.showed = False
+
     def show(self, obj):
         if not self.showed:
-            clmn = [('', dp(22))]
-            row = []
-            for time in times:
-                clmn.append((time, dp(25)))
+            times = functions.times
+            row = len(day) + 1
+            clm = len(times) + 1
+            grid_table = MDGridLayout(pos_hint={'center_x': .5, 'center_y': .55}, size_hint=[None, None],
+                                      md_bg_color="#2e2e2d", rows=row, cols=clm)
+            grid_table.bind(minimum_height=grid_table.setter('height'), minimum_width=grid_table.setter('width'))
+            DP = 60
+            WDP = 110
+            TDP = 10
+            line = "#000000"
+            txt = MDLabel(text="", size_hint=[None, None], size=[dp(WDP), dp(DP)], halign="center", line_color=line,
+                          text_size=(None, dp(TDP)))
+            grid_table.add_widget(txt)
+            for t in times:
+                tim = MDLabel(text=t, size_hint=[None, None], size=[dp(WDP), dp(DP)], halign="center", line_color=line,
+                              text_size=(None, dp(TDP)))
+                grid_table.add_widget(tim)
+
             for key in day.keys():
-                lst = [key]
-                k = day[key]
-                for time in times:
-                    fnd = False
-                    for subs in k:
-                        if subs[1] == time:
-                            lst.append(f"{subs[0]}\nRoom: {str(subs[2])}")
-                            fnd = True
-                            break
-                    if fnd == False:
-                        lst.append('')
-                row.append(lst)
+                d = MDLabel(text=key, size_hint=[None, None], size=[dp(WDP), dp(DP)], halign="center", line_color=line,
+                            text_size=(None, dp(TDP)))
+                grid_table.add_widget(d)
 
-            self.table = MDDataTable(
-                pos_hint={'center_x': .5, 'center_y': .55},
-                size_hint=[.9, .46],
-                column_data=clmn,
-                row_data=row,
-                rows_num=8,
-                elevation=0
-            )
+                temp = {}  # creates a dummy dictionary
+                dummy = {}  # creates a dummy dictionary
+
+                for lst in day[key]:
+                    dummy[lst[1]] = lst
+
+                for i, t in enumerate(times):
+                    if t in dummy.keys():
+                        temp[i] = dummy[t]
+
+                dummy.clear()
+
+                for i, t in enumerate(times):
+                    if i in temp.keys() and temp[i][1] == t:
+                        tim = MDLabel(text=f"{temp[i][0]}\nRoom : {temp[i][2]}", size_hint=[None, None],
+                                      size=[dp(WDP), dp(DP)], halign="center",
+                                      pos_hint={"center_x": .5, "center_y": .5},
+                                      line_color=line, text_size=(None, dp(TDP)))
+                        grid_table.add_widget(tim)
+
+                    else:
+                        txt = MDLabel(text="-", size_hint=[None, None], size=[dp(WDP), dp(DP)], halign="center",
+                                      line_color=line,
+                                      text_size=(None, dp(TDP)))
+                        grid_table.add_widget(txt)
+                temp.clear()
+
+            self.table = MDScrollView(pos_hint={'center_x': .5, 'center_y': .55}, size=self.size, size_hint=[.9, .56],
+                                      do_scroll_y=True, do_scroll_x=True)
+            self.table.add_widget(grid_table)
             self.add_widget(self.table)
-
             self.showed = True
 
-    def store(self, obj):
+    def pdf_store(self, obj):
+        print(day)
+
         if not os.path.exists(loctn[0]):
             os.makedirs(loctn[0])
-        routine_pdf(day, times,loctn[1], loctn[0])
+        functions.routine_pdf(day, functions.times, loctn[1], loctn[0])
+
+        if platform == "android":
+            from android import autoclass
+            Environment = autoclass('android.os.Environment')
+            ss = SharedStorage()
+            ss.copy_to_shared(f"{loctn[0]}/{loctn[1]}.pdf",
+                              collection=Environment.DIRECTORY_DOWNLOADS)
+
         success = BoxLayout()
         success.txt = MDLabel(text="Successfully saved the routine ",
-                           size_hint=[.5, 1], size=self.size, pos_hint={"top": 1.1},
-                           theme_text_color="Custom", text_color="#e6e5e3")
+                              size_hint=[.5, 1], size=self.size, pos_hint={"top": 1.1},
+                              theme_text_color="Custom", text_color="#e6e5e3")
         success.add_widget(success.txt)
-        pop = Popup(title=f"{loctn[0]}/{loctn[1]}.pdf", content=success, size_hint=[.8, .2], pos_hint={"center_x": .5})
+        pop = Popup(title=f"Downloads/DIU Routine/{loctn[1]}.pdf", content=success, size_hint=[.8, .2],
+                    pos_hint={"center_x": .5})
+        pop.open()
+
+    def excel_store(self, obj):
+        if not os.path.exists(loctn[0]):
+            os.makedirs(loctn[0])
+        functions.routine_excel(day, times, loctn[1], loctn[0])
+        success = BoxLayout()
+        success.txt = MDLabel(text="Successfully saved the routine ",
+                              size_hint=[.5, 1], size=self.size, pos_hint={"top": 1.1},
+                              theme_text_color="Custom", text_color="#e6e5e3")
+        success.add_widget(success.txt)
+        pop = Popup(title=f"{loctn[0]}/{loctn[1]}.excel", content=success, size_hint=[.8, .2],
+                    pos_hint={"center_x": .5})
         pop.open()
 
     def change(self, obj):
-        if self.showed==True:
+        if self.showed == True:
             # self.remove_widget(self.scrl)
             self.remove_widget(self.table)
-            self.showed=False
-        self.manager.current = 'function'
+            self.showed = False
+        self.manager.current = 'StudentPage'
 
         day.clear()
         times.clear()
 
 
+class TeacherPage(MDScreen):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+        box = BoxLayout(padding=10, orientation="vertical")
+        self.b2 = MDRectangleFlatButton(text="Next", size=[.25, .06], pos_hint={"center_x": .5, "center_y": .34},
+                                        on_press=self.Generate_routine, line_color="#31de8d", md_bg_color="#31de8d",
+                                        text_color="#292929", )
+        b3 = MDRectangleFlatButton(text="Home", size=[.2, .06], pos_hint={"center_x": .5, "center_y": .2},
+                                   on_press=self.change, line_color="#3c3d3d", md_bg_color="#3c3d3d",
+                                   text_color="white")
+
+
+        box.add_widget(
+            MDLabel(text="SWE Routine", font_style="H4", pos_hint={"x": .25, "center_y": 1}, size_hint=[1, .1]))
+
+        box.add_widget(MDLabel(size_hint=[.5, .05]))
+
+        self.teacher_initial = MDTextField(multiline=False, size_hint=[.6, .1],
+                                           pos_hint={"center_x": .5, "center_y": .8},
+                                           hint_text="Teacher's Initial")
+        box.add_widget(self.teacher_initial)
+
+        box.add_widget(MDLabel(size_hint=[.5, .1], pos_hint={"center_x": .5, "center_y": .5}))
+
+        box.add_widget(self.b2)
+
+        box.add_widget(MDLabel(size_hint=[.5, .05]))
+
+        box.add_widget(b3)
+        box.add_widget(
+            MDLabel(text="0242320005341689", size_hint=[.5, .1], pos_hint={"center_x": .55, "center_y": .08},
+                    theme_text_color="Custom", text_color="#171717"))
+        self.add_widget(box)
+
+    def Generate_routine(self, obj):
+        loc = loctn[2]
+
+        if platform == 'android':
+            loc_list = loc.split('/')
+
+
+            loc_list.pop()
+
+        else:
+            loc_list = loc.split('\\')
+            loc_list.pop()
+        loc_list.pop()
+        loc_list.append("DIU Routine")
+
+        loctn[0] = '/'.join(loc_list)
+        loctn[1] = self.teacher_initial.text.upper()
+        location = loc
+        self.save_loc = '/'.join(loc_list)
+
+        ti = str(self.teacher_initial.text).upper()
+
+        functions.times,functions.days = functions.teacher(location, ti)
+        for keys in functions.days:
+            if functions.days[keys] != []:
+                day[keys] = functions.days[keys]
+        for keys in functions.days:
+            functions.days[keys] = []
+
+        Generated = True
+
+        self.manager.current = "teacher_show"
+
+    def change(self, obj):
+        self.manager.current = "Home"
+
+
+class Teacher_Routine_Show(MDScreen):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.add_widget(
+            MDRectangleFlatButton(text='Show Routine', on_press=self.show, pos_hint={'center_x': .5, 'center_y': .9},
+                                  md_bg_color="#176963", line_color="#176963", text_color="white"))
+        self.add_widget(
+            MDRectangleFlatButton(text='Save PDF', pos_hint={"center_x": .5, "center_y": .2}, on_press=self.pdf_store,
+                                  md_bg_color="#31de8d", line_color="#31de8d", text_color="#292929"))
+
+        self.add_widget(
+            MDRectangleFlatButton(text='Back', pos_hint={"center_x": .5, "center_y": .1}, on_press=self.change,
+                                  md_bg_color="#30c6d1", line_color="#30c6d1", text_color="#292929"))
+
+        self.showed = False
+
+    def show(self, obj):
+        if not self.showed:
+            times = functions.times
+            row = len(day) + 1
+            clm = len(times) + 1
+            grid_table = MDGridLayout(pos_hint={'center_x': .5, 'center_y': .55}, size_hint=[None, None],
+                                      md_bg_color="#2e2e2d", rows=row, cols=clm)
+            grid_table.bind(minimum_height=grid_table.setter('height'), minimum_width=grid_table.setter('width'))
+            DP = 60
+            WDP = 110
+            TDP = 10
+            line = "#000000"
+            txt = MDLabel(text="", size_hint=[None, None], size=[dp(WDP), dp(DP)], halign="center", line_color=line,
+                          text_size=(None, dp(TDP)))
+            grid_table.add_widget(txt)
+            for t in times:
+                tim = MDLabel(text=t, size_hint=[None, None], size=[dp(WDP), dp(DP)], halign="center", line_color=line,
+                              text_size=(None, dp(TDP)))
+                grid_table.add_widget(tim)
+
+            for key in day.keys():
+                d = MDLabel(text=key, size_hint=[None, None], size=[dp(WDP), dp(DP)], halign="center", line_color=line,
+                            text_size=(None, dp(TDP)))
+                grid_table.add_widget(d)
+                # count = len(day[key])-1
+                # end = len(day[key])
+
+                temp = {}  # creates a dummy dictionary
+                dummy = {}  # creates a dummy dictionary
+
+                for lst in day[key]:
+                    dummy[lst[1]] = lst
+
+                for i, t in enumerate(times):
+                    if t in dummy.keys():
+                        temp[i] = dummy[t]
+
+                dummy.clear()
+
+                for i, t in enumerate(times):
+                    if i in temp.keys() and temp[i][1] == t:
+                        tim = MDLabel(text=f"{temp[i][0]}\nRoom : {temp[i][2]}", size_hint=[None, None],
+                                      size=[dp(WDP), dp(DP)], halign="center",
+                                      pos_hint={"center_x": .5, "center_y": .5},
+                                      line_color=line, text_size=(None, dp(TDP)))
+                        grid_table.add_widget(tim)
+
+                    else:
+                        txt = MDLabel(text="-", size_hint=[None, None], size=[dp(WDP), dp(DP)], halign="center",
+                                      line_color=line,
+                                      text_size=(None, dp(TDP)))
+                        grid_table.add_widget(txt)
+                temp.clear()
+
+            self.table = MDScrollView(pos_hint={'center_x': .5, 'center_y': .55}, size=self.size, size_hint=[.9, .56],
+                                      do_scroll_y=True, do_scroll_x=True)
+            self.table.add_widget(grid_table)
+            self.add_widget(self.table)
+            self.showed = True
+
+    def pdf_store(self, obj):
+        print(day)
+        if not os.path.exists(loctn[0]):
+            os.makedirs(loctn[0])
+        functions.routine_pdf(day, functions.times, loctn[1], loctn[0])
+
+        if platform == "android":
+            from android import autoclass
+            Environment = autoclass('android.os.Environment')
+            ss = SharedStorage()
+            ss.copy_to_shared(f"{loctn[0]}/{loctn[1]}.pdf",
+                              collection=Environment.DIRECTORY_DOWNLOADS)
+
+        success = BoxLayout()
+        success.txt = MDLabel(text="Successfully saved the routine ",
+                              size_hint=[.5, 1], size=self.size, pos_hint={"top": 1.1},
+                              theme_text_color="Custom", text_color="#e6e5e3")
+        success.add_widget(success.txt)
+        pop = Popup(title=f"Downloads/DIU Routine/{loctn[1]}.pdf", content=success, size_hint=[.8, .2],
+                    pos_hint={"center_x": .5})
+        pop.open()
+
+    def excel_store(self, obj):
+        if not os.path.exists(loctn[0]):
+            os.makedirs(loctn[0])
+        functions.routine_excel(day, times, loctn[1], loctn[0])
+        success = BoxLayout()
+        success.txt = MDLabel(text="Successfully saved the routine ",
+                              size_hint=[.5, 1], size=self.size, pos_hint={"top": 1.1},
+                              theme_text_color="Custom", text_color="#e6e5e3")
+        success.add_widget(success.txt)
+        pop = Popup(title=f"Downloads/DIU Routine/{loctn[1]}.xlsx", content=success, size_hint=[.8, .2],
+                    pos_hint={"center_x": .5})
+        pop.open()
+
+    def change(self, obj):
+        if self.showed == True:
+            # self.remove_widget(self.scrl)
+            self.remove_widget(self.table)
+            self.showed = False
+        self.manager.current = 'TeacherPage'
+
+        day.clear()
+        times.clear()
+
+
+class Blank_Slot_Routine(MDScreen):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.add_widget(
+            MDRectangleFlatButton(text='Show Routine', on_press=self.show, pos_hint={'center_x': .5, 'center_y': .9},
+                                  md_bg_color="#176963", line_color="#176963", text_color="white"))
+        self.add_widget(
+            MDRectangleFlatButton(text='Save PDF', pos_hint={"center_x": .5, "center_y": .2}, on_press=self.pdf_store,
+                                  md_bg_color="#31de8d", line_color="#31de8d", text_color="#292929"))
+        # self.add_widget(
+        #     MDRectangleFlatButton(text='Save Excel', pos_hint={"center_x": .65, "center_y": .2}, on_press=self.excel_store,
+        #                           md_bg_color="#31de8d", line_color="#31de8d", text_color="#292929"))
+        self.add_widget(
+            MDRectangleFlatButton(text='Home', pos_hint={"center_x": .5, "center_y": .1}, on_press=self.change,
+                                  md_bg_color="#30c6d1", line_color="#30c6d1", text_color="#292929"))
+
+        self.showed = False
+
+    def show(self, obj):
+        if not self.showed:
+            emt_days = functions.emt_days
+            times = functions.times
+
+            row = len(emt_days) + 1
+            clm = len(times) + 1
+
+            grid_table = MDGridLayout(pos_hint={'center_x': .5, 'center_y': .55}, size_hint=[None, None],
+                                      md_bg_color="#2e2e2d", rows=row, cols=clm)
+            grid_table.bind(minimum_height=grid_table.setter('height'), minimum_width=grid_table.setter('width'))
+            DP = 60
+            WDP = 110
+            TDP = 10
+            line = "#000000"
+            txt = MDLabel(text="", size_hint=[None, None], size=[dp(WDP), dp(DP)], halign="center", line_color=line,
+                          text_size=(None, dp(TDP)))
+            grid_table.add_widget(txt)
+            for t in times:
+                tim = MDLabel(text=t, size_hint=[None, None], size=[dp(WDP), dp(DP)], halign="center", line_color=line,
+                              text_size=(None, dp(TDP)))
+                grid_table.add_widget(tim)
+
+            for key in emt_days.keys():
+                max_len = 1
+                for t in times:
+                    max_len = max(max_len, len(emt_days[key][t]) + 1)
+                DP = max_len * 20
+
+                d = MDLabel(text=key, size_hint=[None, None], size=[dp(WDP), dp(DP)], halign="center", line_color=line,
+                            text_size=(None, dp(TDP)))
+                grid_table.add_widget(d)
+                # count = len(emt_days[key])-1
+                # end = len(emt_days[key])
+                for time in emt_days[key]:
+                    rooms = ""
+                    for room in emt_days[key][time]:
+                        rooms += f"\n{room[0]}"
+                    rm = MDLabel(text=rooms, size_hint=[None, None], size=[dp(WDP), dp(DP)], halign="center",
+                                 line_color=line,
+                                 text_size=(None, dp(TDP)))
+                    grid_table.add_widget(rm)
+
+            self.table = MDScrollView(pos_hint={'center_x': .5, 'center_y': .55}, size=self.size, size_hint=[.9, .56],
+                                      do_scroll_y=True, do_scroll_x=True)
+            self.table.add_widget(grid_table)
+            self.add_widget(self.table)
+            self.showed = True
+
+    def pdf_store(self, obj):
+        loc = loctn[2]
+        if platform == 'android':
+            loc_list = loc.split('/')
+            loc_list.pop()
+
+        else:
+            loc_list = loc.split('\\')
+            loc_list.pop()
+        loc_list.pop()
+        loc_list.append("DIU Routine")
+        loctn[0] = '/'.join(loc_list)
+
+        if not os.path.exists(loctn[0]):
+            os.makedirs(loctn[0])
+        functions.blank_pdf(functions.emt_days, functions.times, loctn[0])
+
+        if platform == "android":
+            from android import autoclass
+            Environment = autoclass('android.os.Environment')
+            ss = SharedStorage()
+            ss.copy_to_shared(f"{loctn[0]}/Empty Slots.pdf",
+                              collection=Environment.DIRECTORY_DOWNLOADS)
+
+        success = BoxLayout()
+        success.txt = MDLabel(text="Successfully saved the routine ",
+                              size_hint=[.5, 1], size=self.size, pos_hint={"top": 1.1},
+                              theme_text_color="Custom", text_color="#e6e5e3")
+        success.add_widget(success.txt)
+        pop = Popup(title=f"Downloads/DIU Routine/Empty Slots.pdf", content=success, size_hint=[.8, .2],
+                    pos_hint={"center_x": .5})
+        pop.open()
+
+    def change(self, obj):
+        if self.showed == True:
+            self.remove_widget(self.table)
+            self.showed = False
+        self.manager.current = 'Home'
+        for keys in functions.emt_days:
+            functions.emt_days[keys] = {}
+        times.clear()
+
 
 class DIU_Routine(MDApp):
     def build(self):
         Window.bind(on_keyboard=self.key)
-        self.theme_cls.theme_style= "Dark"
+        self.theme_cls.theme_style = "Dark"
         kk = Builder.load_string(kv)
-        kk.message=hm
+        kk.message = hm
         return kk
-        # self.theme_cls.theme_style = "Dark"
         # return main_manager()
 
+    def on_start(self):
+        if platform == "android":
+            from android.permissions import request_permissions, Permission
+            request_permissions([Permission.WRITE_EXTERNAL_STORAGE])
 
     def close_dialouge(self):
         self.dialog = MDDialog(
@@ -686,18 +862,19 @@ class DIU_Routine(MDApp):
             ],
         )
         self.dialog.open()
-    def dialog_close(self,obj):
+
+    def dialog_close(self, obj):
         self.dialog.dismiss()
-    def app_close(self,obj):
+
+    def app_close(self, obj):
         self.stop()
 
-    def key(self,window,key,scancode,codepoint,modifier):
-        if key==27:
+    def key(self, window, key, scancode, codepoint, modifier):
+        if key == 27:
             self.close_dialouge()
             return True
         else:
             return False
-
 
 
 if __name__ == "__main__":
