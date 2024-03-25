@@ -491,13 +491,6 @@ class functions:
 
         pdf.set_font("Times", 'B', size=8)
 
-        # headings_style = FontFace(emphasis="BOLD", color=(237, 237, 237), fill_color=(44, 46, 45))
-        # with pdf.table(headings_style= headings_style,cell_fill_color=200, cell_fill_mode="ROWS") as table:
-        #     for data_row in tbl:
-        #         row = table.row()
-        #         for datum in data_row:
-        #             row.cell(datum)
-
         x = 10
         y = 35
         cell_len = 25.115
